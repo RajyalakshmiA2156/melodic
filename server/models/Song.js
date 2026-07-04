@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
 const songSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  artist: { type: String, required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true, trim: true },
+  artist: { type: String, required: true, trim: true },
   album: { type: String, default: 'Unknown Album' },
   duration: { type: Number, default: 0 },
   genre: { type: String, default: 'Unknown' },

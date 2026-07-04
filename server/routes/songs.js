@@ -3,8 +3,9 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const Song = require('../models/Song');
+const auth = require('../middleware/auth');
 
-// Multer config - handles file uploads
+// Multer config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     if (file.fieldname === 'audio') cb(null, 'uploads/audio');
@@ -18,17 +19,18 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// GET all songs
-router.get('/', async (req, res) => {
+// GET all songs (protected)
+router.get('/', auth, async (req, res) => {
   try {
-    const { search } = req.query;
-    let query = {};
+    const { search, liked } = req.query;
+    let query = { user: req.userId };
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
         { artist: { $regex: search, $options: 'i' } }
       ];
     }
+    if (liked === 'true') query.liked = true;
     const songs = await Song.find(query).sort({ createdAt: -1 });
     res.json(songs);
   } catch (err) {
@@ -36,13 +38,17 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST upload a song
-router.post('/', upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
+// POST upload song (protected)
+router.post('/', auth, upload.fields([
+  { name: 'audio', maxCount: 1 },
+  { name: 'cover', maxCount: 1 }
+]), async (req, res) => {
   try {
     const { title, artist, album, genre, duration } = req.body;
     if (!req.files?.audio) return res.status(400).json({ message: 'Audio file required' });
 
     const song = new Song({
+      user: req.userId,
       title,
       artist,
       album: album || 'Unknown Album',
@@ -59,10 +65,10 @@ router.post('/', upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover',
   }
 });
 
-// PATCH toggle like
-router.patch('/:id/like', async (req, res) => {
+// PATCH toggle like (protected)
+router.patch('/:id/like', auth, async (req, res) => {
   try {
-    const song = await Song.findById(req.params.id);
+    const song = await Song.findOne({ _id: req.params.id, user: req.userId });
     if (!song) return res.status(404).json({ message: 'Song not found' });
     song.liked = !song.liked;
     await song.save();
@@ -72,11 +78,11 @@ router.patch('/:id/like', async (req, res) => {
   }
 });
 
-// PATCH increment play count
-router.patch('/:id/play', async (req, res) => {
+// PATCH increment play count (protected)
+router.patch('/:id/play', auth, async (req, res) => {
   try {
-    const song = await Song.findByIdAndUpdate(
-      req.params.id,
+    const song = await Song.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId },
       { $inc: { plays: 1 } },
       { new: true }
     );
@@ -86,10 +92,10 @@ router.patch('/:id/play', async (req, res) => {
   }
 });
 
-// DELETE song
-router.delete('/:id', async (req, res) => {
+// DELETE song (protected)
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const song = await Song.findByIdAndDelete(req.params.id);
+    const song = await Song.findOneAndDelete({ _id: req.params.id, user: req.userId });
     if (!song) return res.status(404).json({ message: 'Song not found' });
     res.json({ message: 'Song deleted' });
   } catch (err) {
