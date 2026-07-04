@@ -19,7 +19,7 @@ app.use('/api/songs', songRoutes);
 app.use('/api/playlists', playlistRoutes);
 
 // MongoDB Connection
-mongoose.connect('mongodb://localhost:27017/musicplayer')
+ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/musicplayer')
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB error:', err));
 
